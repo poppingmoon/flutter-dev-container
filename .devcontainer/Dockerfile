@@ -11,19 +11,21 @@ ENV LANG C.UTF-8
 
 #
 # Android SDK
-# https://developer.android.com/studio#downloads
-ENV ANDROID_SDK_TOOLS_VERSION 6514223
-ENV ANDROID_PLATFORM_VERSION 29
-ENV ANDROID_BUILD_TOOLS_VERSION 29.0.3
+# https://developer.android.com/studio#command-tools
+ENV ANDROID_SDK_TOOLS_VERSION=8512546
+ENV ANDROID_TOOLS_URL=https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_SDK_TOOLS_VERSION}_latest.zip
+ENV ANDROID_PLATFORM_VERSION=33
+ENV ANDROID_BUILD_TOOLS_VERSION=33.0.0
 ENV ANDROID_HOME=/opt/android-sdk-linux
 ENV ANDROID_SDK_ROOT="$ANDROID_HOME"
-ENV PATH=${PATH}:${ANDROID_HOME}/cmdline-tools/tools/bin:${ANDROID_HOME}/platform-tools:${ANDROID_HOME}/emulator
+ENV PATH=${PATH}:${ANDROID_HOME}/cmdline-tools/${ANDROID_BUILD_TOOLS_VERSION}/bin:${ANDROID_HOME}/platform-tools:${ANDROID_HOME}/emulator
 
 #
 # Flutter SDK
 # https://flutter.dev/docs/development/tools/sdk/releases?tab=linux
-ENV FLUTTER_CHANNEL="beta"
-ENV FLUTTER_VERSION="1.19.0-4.3.pre"
+ENV FLUTTER_CHANNEL="stable"
+ENV FLUTTER_VERSION="3.3.2"
+ENV FLUTTER_URL=https://storage.googleapis.com/flutter_infra_release/releases/${FLUTTER_CHANNEL}/linux/flutter_linux_${FLUTTER_VERSION}-${FLUTTER_CHANNEL}.tar.xz
 # Set this variable as "enable" to auto config flutter web-server.
 # Make sure to use the needed channel and version for this.
 ENV FLUTTER_WEB="enable"
@@ -40,7 +42,7 @@ ARG USER_GID=$USER_UID
 
 #
 # Install needed packages, setup user anda clean up.
-RUN  apt-get update \
+RUN apt-get update \
 	&& apt-get install -y sudo \
 	&& apt-get install -y openjdk-8-jdk-headless --no-install-recommends \
 	&& apt-get install -y wget curl git xz-utils zip unzip --no-install-recommends \
@@ -56,11 +58,12 @@ RUN  apt-get update \
 	&& chmod 0440 /etc/sudoers.d/$USERNAME
 
 #
-# Android SDK	
+# Android SDK
 RUN cd /opt \
-	&& curl -C - --output android-sdk-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_SDK_TOOLS_VERSION}_latest.zip \
+	&& curl -C - --output android-sdk-tools.zip $ANDROID_TOOLS_URL \
 	&& mkdir -p ${ANDROID_HOME}/cmdline-tools/ \
 	&& unzip -q android-sdk-tools.zip -d ${ANDROID_HOME}/cmdline-tools/ \
+	&& mv ${ANDROID_HOME}/cmdline-tools/cmdline-tools ${ANDROID_HOME}/cmdline-tools/${ANDROID_BUILD_TOOLS_VERSION} \
 	&& rm android-sdk-tools.zip \
 	&& yes | sdkmanager --licenses \
 	&& touch $HOME/.android/repositories.cfg \
@@ -71,9 +74,10 @@ RUN cd /opt \
 #
 # Flutter SDK
 RUN cd /opt \
-	&& curl -C - --output flutter.tar.xz https://storage.googleapis.com/flutter_infra/releases/${FLUTTER_CHANNEL}/linux/flutter_linux_${FLUTTER_VERSION}-${FLUTTER_CHANNEL}.tar.xz \
+	&& curl -C - --output flutter.tar.xz $FLUTTER_URL \
 	&& tar xf flutter.tar.xz -C . \
 	&& rm flutter.tar.xz \
+	&& git config --global --add safe.directory /opt/flutter \
 	&& yes | flutter doctor --android-licenses \
 	&& flutter config --no-analytics \
 	&& if [ "$FLUTTER_WEB" = "enable" ]; then flutter config --enable-web; fi \
